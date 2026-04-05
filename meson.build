@@ -549,6 +549,15 @@ foreach attr : possible_c_attributes
         conf.set10('HAVE_ATTRIBUTE_' + attr.to_upper(), have)
 endforeach
 
+# TODO: drop this manual check when meson learns about this attribute
+possible_c_attributes += ['no_reorder']
+
+have = cc.compiles(
+        '__attribute__((__no_reorder__)) int x;',
+        args : '-Werror=attributes',
+        name : '__attribute__((__no_reorder__))')
+conf.set10('HAVE_ATTRIBUTE_NO_REORDER', have)
+
 #####################################################################
 # compilation result tests
 
@@ -2974,12 +2983,7 @@ endif
 
 spatch = find_program('spatch', required : false)
 if spatch.found()
-        # Directories excluded from coccinelle checks until their warnings are fixed.
-        # Remove directories from this list as they are cleaned up.
         coccinelle_exclude = [
-                'src/basic/',
-                'src/libsystemd/',
-                'src/shared/',
                 # libc/ has no assert() or systemd-headers so leave it
                 'src/libc/',
                 # test/ has some deliberate wonky pointers, just leave excluded

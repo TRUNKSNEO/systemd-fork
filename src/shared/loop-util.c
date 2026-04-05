@@ -33,6 +33,8 @@
 #include "time-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
+        assert(fd);
+
         if (*fd < 0)
                 return;
 
@@ -1230,6 +1232,9 @@ int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
         struct loop_info64 info;
 
         assert(d);
+
+        if (LOOP_DEVICE_IS_FOREIGN(d))
+                return 0;
 
         if (ioctl(ASSERT_FD(d->fd), LOOP_GET_STATUS64, &info) < 0)
                 return -errno;

@@ -2983,9 +2983,13 @@ static int partition_read_definition(
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Minimize= can only be enabled if Format= or Verity=hash are set.");
 
-        if (p->minimize == MINIMIZE_BEST && (p->format && !fstype_is_ro(p->format)) && p->verity != VERITY_HASH)
+        if (p->minimize == MINIMIZE_BEST &&
+                p->format &&
+                !fstype_is_ro(p->format) &&
+                !streq(p->format, "btrfs") &&
+                p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize=best can only be used with read-only filesystems or Verity=hash.");
+                                  "Minimize=best can only be used with read-only filesystems, btrfs, or Verity=hash.");
 
         if (partition_needs_populate(p) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
@@ -7014,6 +7018,9 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
                         if (r < 0)
                                 return r;
                 }
+
+                if (p->minimize != MINIMIZE_OFF && strv_extend(&sv, "--shrink") < 0)
+                        return log_oom();
         }
 
         *ret = TAKE_PTR(sv);
@@ -7734,6 +7741,8 @@ static int write_primary_descriptor(
                 const char *publisher_id) {
         int r;
 
+        assert(fd >= 0);
+
         struct iso9660_primary_volume_descriptor desc = {
                 .header = {
                         .type = 1,
@@ -7762,43 +7771,43 @@ static int write_primary_descriptor(
                 }
         };
 
-        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
-        r = time_to_iso9660_dir_datetime(usec, utc, &desc.root_directory_entry.time);
+        r = iso9660_dir_datetime_from_usec(usec, utc, &desc.root_directory_entry.time);
         if (r < 0)
                 return r;
 
-        r = set_iso9660_string(desc.system_identifier, sizeof(desc.system_identifier), system_id, /* allow_a_chars= */ true);
+        r = iso9660_set_string(desc.system_identifier, sizeof(desc.system_identifier), system_id, /* allow_a_chars= */ true);
         if (r < 0)
                 return r;
 
         /* In theory the volume identifier should be d-chars, but in practice, a-chars are allowed */
-        r = set_iso9660_string(desc.volume_identifier, sizeof(desc.volume_identifier), volume_id, /* allow_a_chars= */ true);
+        r = iso9660_set_string(desc.volume_identifier, sizeof(desc.volume_identifier), volume_id, /* allow_a_chars= */ true);
         if (r < 0)
                 return r;
 
-        set_iso9660_const_string(desc.volume_set_identifier, sizeof(desc.volume_set_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.volume_set_identifier, sizeof(desc.volume_set_identifier), NULL, /* allow_a_chars= */ false);
 
-        r = set_iso9660_string(desc.publisher_identifier, sizeof(desc.publisher_identifier), publisher_id, /* allow_a_chars= */ true);
+        r = iso9660_set_string(desc.publisher_identifier, sizeof(desc.publisher_identifier), publisher_id, /* allow_a_chars= */ true);
         if (r < 0)
                 return r;
 
-        set_iso9660_const_string(desc.data_preparer_identifier, sizeof(desc.data_preparer_identifier), NULL, /* allow_a_chars= */ true);
-        set_iso9660_const_string(desc.application_identifier, sizeof(desc.application_identifier), "SYSTEMD-REPART", /* allow_a_chars= */ true);
-        set_iso9660_const_string(desc.copyright_file_identifier, sizeof(desc.copyright_file_identifier), NULL, /* allow_a_chars= */ false);
-        set_iso9660_const_string(desc.abstract_file_identifier, sizeof(desc.abstract_file_identifier), NULL, /* allow_a_chars= */ false);
-        set_iso9660_const_string(desc.bibliographic_file_identifier, sizeof(desc.bibliographic_file_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.data_preparer_identifier, sizeof(desc.data_preparer_identifier), NULL, /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.application_identifier, sizeof(desc.application_identifier), "SYSTEMD-REPART", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.copyright_file_identifier, sizeof(desc.copyright_file_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.abstract_file_identifier, sizeof(desc.abstract_file_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.bibliographic_file_identifier, sizeof(desc.bibliographic_file_identifier), NULL, /* allow_a_chars= */ false);
 
-        r = time_to_iso9660_datetime(usec, utc, &desc.volume_creation_date);
+        r = iso9660_datetime_from_usec(usec, utc, &desc.volume_creation_date);
         if (r < 0)
                 return r;
 
-        r = time_to_iso9660_datetime(usec, utc, &desc.volume_modification_date);
+        r = iso9660_datetime_from_usec(usec, utc, &desc.volume_modification_date);
         if (r < 0)
                 return r;
 
-        no_iso9660_datetime(&desc.volume_expiration_date);
-        no_iso9660_datetime(&desc.volume_effective_date);
+        iso9660_datetime_zero(&desc.volume_expiration_date);
+        iso9660_datetime_zero(&desc.volume_effective_date);
 
         ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_PRIMARY_DESCRIPTOR*ISO9660_BLOCK_SIZE);
         if (s < 0)
@@ -7810,6 +7819,8 @@ static int write_primary_descriptor(
 }
 
 static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
+        assert(fd >= 0);
+
         struct iso9660_eltorito_descriptor desc = {
                 .header = {
                         .type = 0,
@@ -7818,7 +7829,7 @@ static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
                 .boot_catalog_sector = htole32(catalog_sector),
         };
 
-        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
         strncpy(desc.boot_system_identifier, "EL TORITO SPECIFICATION", sizeof(desc.boot_system_identifier));
 
@@ -7832,6 +7843,8 @@ static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
 }
 
 static int write_terminal_descriptor(int fd) {
+        assert(fd >= 0);
+
         struct iso9660_terminal_descriptor desc = {
                 .header = {
                         .type = 255,
@@ -7839,7 +7852,7 @@ static int write_terminal_descriptor(int fd) {
                 },
         };
 
-        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
         ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_TERMINAL_DESCRIPTOR*ISO9660_BLOCK_SIZE);
         if (s < 0)
@@ -7851,6 +7864,7 @@ static int write_terminal_descriptor(int fd) {
 }
 
 static uint16_t calculate_validation_entry_checksum(const void *p, size_t size) {
+        assert(p || size == 0);
         assert(size % 2 == 0);
 
         uint16_t checksum = 0;
@@ -7862,6 +7876,8 @@ static uint16_t calculate_validation_entry_checksum(const void *p, size_t size) 
 }
 
 static int write_boot_catalog(int fd, uint32_t load_block) {
+        assert(fd >= 0);
+
         struct el_torito_validation_entry ve = {
                 .header_indicator = 1,
                 .platform = 0xef, /* EFI */
@@ -7904,8 +7920,15 @@ static int write_boot_catalog(int fd, uint32_t load_block) {
         return 0;
 }
 
-static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector) {
+static int write_directories(
+                int fd,
+                usec_t usec,
+                bool utc,
+                uint32_t root_sector) {
+
         int r;
+
+        assert(fd >= 0);
 
         uint32_t dir_size = 2*sizeof(struct iso9660_directory_entry); /* 2 entries with ident size 1: . and .. */
 
@@ -7922,7 +7945,7 @@ static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector
                 .ident[0] = 0, /* special value for self */
         };
 
-        r = time_to_iso9660_dir_datetime(usec, utc, &self.time);
+        r = iso9660_dir_datetime_from_usec(usec, utc, &self.time);
         if (r < 0)
                 return r;
 
@@ -7941,7 +7964,7 @@ static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector
 
         // TODO: we should probably add some text file explaining there is no content through ISO9660
 
-        r = time_to_iso9660_dir_datetime(usec, utc, &parent.time);
+        r = iso9660_dir_datetime_from_usec(usec, utc, &parent.time);
         if (r < 0)
                 return r;
 
@@ -7960,8 +7983,18 @@ static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector
         return 0;
 }
 
-static int write_eltorito(int fd, usec_t usec, bool utc, uint32_t load_block, const char *system_id, const char *volume_id, const char *publisher_id) {
+static int write_eltorito(
+                int fd,
+                usec_t usec,
+                bool utc,
+                uint32_t load_block, /* in iso9660 blocks */
+                const char *system_id,
+                const char *volume_id,
+                const char *publisher_id) {
+
         int r;
+
+        assert(fd >= 0);
 
         r = write_primary_descriptor(fd, ISO9660_ROOT_DIRECTORY, usec, utc, system_id, volume_id, publisher_id);
         if (r < 0)
@@ -7987,7 +8020,7 @@ static int write_eltorito(int fd, usec_t usec, bool utc, uint32_t load_block, co
 }
 
 static int context_verify_eltorito_overlap(Context *context) {
-        /* before writing the partition table, we check if we have collision with ISO9660 */
+        /* Check if the partition table collides with the ISO9660 El Torito area. */
         assert(context);
 
         if (!arg_eltorito)
@@ -8105,10 +8138,6 @@ static int context_write_partition_table(Context *context) {
 
         (void) context_notify(context, PROGRESS_WRITING_TABLE, /* object= */ NULL, UINT_MAX);
 
-        r = context_verify_eltorito_overlap(context);
-        if (r < 0)
-                return r;
-
         r = fdisk_write_disklabel(context->fdisk_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
@@ -8128,25 +8157,39 @@ static int context_write_partition_table(Context *context) {
         } else
                 log_notice("Not telling kernel to reread partition table, because selected image does not support kernel partition block devices.");
 
-        if (arg_eltorito) {
-                bool utc = true;
-                usec_t usec = parse_source_date_epoch();
-                if (usec == USEC_INFINITY) {
-                        usec = now(CLOCK_REALTIME);
-                        utc = false;
-                }
+        log_info("Partition table written.");
 
-                uint64_t esp_offset;
-                r = context_find_esp_offset(context, &esp_offset);
-                if (r < 0)
-                        return r;
+        return 0;
+}
 
-                r = write_eltorito(fdisk_get_devfd(context->fdisk_context), usec, utc, esp_offset / ISO9660_BLOCK_SIZE, arg_eltorito_system, arg_eltorito_volume, arg_eltorito_publisher);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write El Torito boot catalog: %m");
+static int context_write_eltorito(Context *context) {
+        int r;
+
+        assert(context);
+
+        if (!arg_eltorito)
+                return 0;
+
+        if (context->dry_run)
+                return 0;
+
+        bool utc = true;
+        usec_t usec = parse_source_date_epoch();
+        if (usec == USEC_INFINITY) {
+                usec = now(CLOCK_REALTIME);
+                utc = false;
         }
 
-        log_info("All done.");
+        uint64_t esp_offset;
+        r = context_find_esp_offset(context, &esp_offset);
+        if (r < 0)
+                return r;
+
+        log_info("Writing El Torito boot catalog.");
+
+        r = write_eltorito(fdisk_get_devfd(context->fdisk_context), usec, utc, esp_offset / ISO9660_BLOCK_SIZE, arg_eltorito_system, arg_eltorito_volume, arg_eltorito_publisher);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write El Torito boot catalog: %m");
 
         return 0;
 }
@@ -9109,6 +9152,8 @@ static int context_minimize(Context *context) {
                 if (!p->format)
                         continue;
 
+                bool is_btrfs = streq(p->format, "btrfs");
+
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
@@ -9124,7 +9169,7 @@ static int context_minimize(Context *context) {
 
                 (void) partition_hint(p, context->node, &hint);
 
-                log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
+                log_info("Pre-populating %s filesystem of partition %s to calculate minimal partition size",
                          p->format, strna(hint));
 
                 if (!vt) {
@@ -9146,7 +9191,9 @@ static int context_minimize(Context *context) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
 
-                if (fstype_is_ro(p->format))
+                if (fstype_is_ro(p->format) || is_btrfs)
+                        /* Read-only filesystems and btrfs (with mkfs.btrfs --shrink) produce a minimal
+                         * filesystem in one pass, so we can use the real UUID directly. */
                         fs_uuid = p->fs_uuid;
                 else {
                         /* This may seem huge but it will be created sparse so it doesn't take up any space
@@ -9168,7 +9215,7 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                if (!d || fstype_is_ro(p->format) || (streq_ptr(p->format, "btrfs") && p->compression)) {
+                if (!d || fstype_is_ro(p->format)) {
                         if (!mkfs_supports_root_option(p->format))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
                                                        "Loop device access is required to populate %s filesystems.",
@@ -9198,8 +9245,9 @@ static int context_minimize(Context *context) {
                         return r;
 
                 /* Read-only filesystems are minimal from the first try because they create and size the
-                 * loopback file for us. */
-                if (fstype_is_ro(p->format)) {
+                 * loopback file for us. Similarly, mkfs.btrfs --shrink populates the filesystem from the
+                 * root directory and then shrinks the backing file to the minimal size. */
+                if (fstype_is_ro(p->format) || is_btrfs) {
                         fd = safe_close(fd);
 
                         fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -9234,10 +9282,8 @@ static int context_minimize(Context *context) {
 
                 /* Other filesystems need to be provided with a pre-sized loopback file and will adapt to
                  * fully occupy it. Because we gave the filesystem a 1T sparse file, we need to shrink the
-                 * filesystem down to a reasonable size again to fit it in the disk image. While there are
-                 * some filesystems that support shrinking, it doesn't always work properly (e.g. shrinking
-                 * btrfs gives us a 2.0G filesystem regardless of what we put in it). Instead, let's populate
-                 * the filesystem again, but this time, instead of providing the filesystem with a 1T sparse
+                 * filesystem down to a reasonable size again to fit it in the disk image. Let's populate the
+                 * filesystem again, but this time, instead of providing the filesystem with a 1T sparse
                  * loopback file, let's size the loopback file based on the actual data used by the
                  * filesystem in the sparse file after the first attempt. This should be a good guess of the
                  * minimal amount of space needed in the filesystem to fit all the required data.
@@ -11029,6 +11075,10 @@ static int vl_method_run(
                                 SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", minimal_size));
         }
 
+        r = context_verify_eltorito_overlap(context);
+        if (r < 0)
+                return r;
+
         r = context_ponder(context);
         if (r == -ENOSPC) {
                 uint64_t current_size, foreign_size, minimal_size;
@@ -11074,6 +11124,10 @@ static int vl_method_run(
         }
 
         r = context_write_partition_table(context);
+        if (r < 0)
+                return r;
+
+        r = context_write_eltorito(context);
         if (r < 0)
                 return r;
 
@@ -11343,6 +11397,10 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
+        r = context_verify_eltorito_overlap(context);
+        if (r < 0)
+                return r;
+
         r = context_ponder(context);
         if (r == -ENOSPC) {
                 /* When we hit space issues, tell the user the minimal size. */
@@ -11355,6 +11413,10 @@ static int run(int argc, char *argv[]) {
         (void) context_dump(context, /* late= */ false);
 
         r = context_write_partition_table(context);
+        if (r < 0)
+                return r;
+
+        r = context_write_eltorito(context);
         if (r < 0)
                 return r;
 
