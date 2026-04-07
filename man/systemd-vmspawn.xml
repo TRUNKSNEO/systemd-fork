@@ -188,18 +188,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--cxl=<replaceable>BOOL</replaceable></option></term>
-
-          <listitem><para>Controls whether to enable CXL (Compute Express Link) support in the virtual
-          machine. CXL is a high-speed interconnect standard that allows CPUs to access memory attached to
-          devices such as accelerators and memory expanders, enabling flexible memory pooling and expansion
-          beyond what is physically installed on the motherboard. Only supported on x86_64 and aarch64
-          architectures.</para>
-
-          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>--vsock=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>Controls whether to allocate a VSOCK socket for guest. If not specified or set to
@@ -501,13 +489,10 @@
 
           <listitem><para>Controls whether the virtual machine is registered with
           <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
-          boolean argument, which defaults to <literal>yes</literal> when running as root, and <literal>no</literal> when
-          running as a regular user.  This ensures that the virtual machine is accessible via
-          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
-
-          <para>Note: root privileges are required to use this option as registering with
-          <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          requires privileged D-Bus method calls.</para>
+          boolean argument or <literal>auto</literal>, and defaults to <literal>auto</literal>.  This ensures that the
+          virtual machine is accessible via
+          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  When set to
+          <literal>auto</literal>, registration is attempted but failures are ignored.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
