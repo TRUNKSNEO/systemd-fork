@@ -1373,6 +1373,7 @@ conf.set10('HAVE_DWFL_SET_SYSROOT',
 libz = dependency('zlib',
                   required : get_option('zlib'))
 conf.set10('HAVE_ZLIB', libz.found())
+libz_cflags = libz.partial_dependency(includes: true, compile_args: true)
 
 feature = get_option('bzip2')
 libbzip2 = dependency('bzip2',
@@ -1382,6 +1383,7 @@ if not libbzip2.found()
         libbzip2 = cc.find_library('bz2', required : feature)
 endif
 conf.set10('HAVE_BZIP2', libbzip2.found())
+libbzip2_cflags = libbzip2.partial_dependency(includes: true, compile_args: true)
 
 libxz = dependency('liblzma',
                    required : get_option('xz'))
@@ -2894,7 +2896,13 @@ if git.found()
                      'ls-files', ':/*.[ch]', ':/*.cc',
                 check : false)
         if all_files.returncode() == 0
-                all_files = files(all_files.stdout().split())
+                existing_files = []
+                foreach f : all_files.stdout().split()
+                        if fs.exists(f)
+                                existing_files += f
+                        endif
+                endforeach
+                all_files = files(existing_files)
 
                 custom_target(
                         output : 'tags',
