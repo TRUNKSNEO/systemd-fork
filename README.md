@@ -86,7 +86,7 @@ Reboot your computer, and congratulations! Your computer is now liberated from a
 
 ### List of community repos
 There are community-made packages you can install (aside - I'm stunned that others have done this, and absolutely love it!). That said, I did not create these, have not tested them, and cannot take credit (or responsibility) for them - so make sure you understand what they are doing before you install them. But if you'd like, here is a list of the ones I am aware of:
-- For Arch (via AUR): https://aur.archlinux.org/packages/systemd-liberated-git
+- For Arch (via AUR): https://aur.archlinux.org/packages/systemd-liberated-git (Credit: [zeakz](https://aur.archlinux.org/account/zeakz))
 
 ## How often is this updated (or, "why is Liberated `systemd` behind by X commits?")
 Liberated `systemd` will be updated at least weekly. Note that the base `systemd` repo is updated very frequently -- typically 20-30 commits in a day. Many of these come from merging PRs with multiple commits in their history. As a result, it's quite common to see Liberated `systemd` behind by 50 or more commits -- even when its code is only a few days behind. So check on the commit dates as well if you want to know how up-to-date Liberated `systemd` is.
