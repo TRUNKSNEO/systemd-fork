@@ -146,7 +146,7 @@ static int probe_file_system_by_fd(
         assert(ret_fstype);
         assert(ret_uuid);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -411,7 +411,7 @@ static int luks_setup(
                 key_serial_t *ret_key_serial) {
 
         _cleanup_(keyring_unlinkp) key_serial_t key_serial = -1;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
@@ -522,14 +522,14 @@ static int acquire_open_luks_device(
                 HomeSetup *setup,
                 bool graceful) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(h);
         assert(setup);
         assert(!setup->crypt_device);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -684,7 +684,7 @@ static int luks_validate(
         assert(ret_size);
         assert(sector_size > 0);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1289,7 +1289,7 @@ int home_setup_luks(
         assert(setup);
         assert(user_record_storage(h) == USER_LUKS);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1590,7 +1590,7 @@ int home_activate_luks(
         assert(setup);
         assert(ret_home);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1781,7 +1781,7 @@ static int luks_format(
                 struct crypt_device **ret) {
 
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         _cleanup_free_ char *text = NULL;
@@ -2207,11 +2207,11 @@ int home_create_luks(
         assert(setup->image_fd < 0);
         assert(ret_home);
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -3246,11 +3246,11 @@ int home_resize_luks(
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -3708,7 +3708,7 @@ int home_passwd_luks(
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
