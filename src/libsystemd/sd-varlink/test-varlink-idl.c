@@ -25,6 +25,7 @@
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.InstanceMetadata.h"
+#include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.JournalAccess.h"
 #include "varlink-io.systemd.Login.h"
@@ -43,6 +44,7 @@
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.StorageProvider.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -192,6 +194,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Hostname,
                 &vl_interface_io_systemd_Import,
                 &vl_interface_io_systemd_InstanceMetadata,
+                &vl_interface_io_systemd_Job,
                 &vl_interface_io_systemd_Journal,
                 &vl_interface_io_systemd_JournalAccess,
                 &vl_interface_io_systemd_Login,
@@ -210,6 +213,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,
+                &vl_interface_io_systemd_StorageProvider,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,

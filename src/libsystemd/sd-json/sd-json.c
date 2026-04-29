@@ -5294,10 +5294,8 @@ _public_ int sd_json_dispatch_full(
                                         done++;
 
                         } else {
-                                if (flags & SD_JSON_ALLOW_EXTENSIONS) {
-                                        json_log(value, flags|SD_JSON_DEBUG, 0, "Unrecognized object field '%s', assuming extension.", sd_json_variant_string(key));
+                                if (flags & SD_JSON_ALLOW_EXTENSIONS)
                                         continue;
-                                }
 
                                 json_log(value, flags, 0, "Unexpected object field '%s'.", sd_json_variant_string(key));
                                 if (flags & SD_JSON_PERMISSIVE)
@@ -5663,6 +5661,7 @@ _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, s
         _cleanup_strv_free_ char **l = NULL;
         char ***s = userdata;
         sd_json_variant *e;
+        size_t n = 0;
         int r;
 
         assert_return(variant, -EINVAL);
@@ -5696,7 +5695,7 @@ _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, s
                 if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(e), STRING_ALLOW_EMPTY|STRING_ALLOW_GLOBS))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
 
-                r = strv_extend(&l, sd_json_variant_string(e));
+                r = strv_extend_with_size(&l, &n, sd_json_variant_string(e));
                 if (r < 0)
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }

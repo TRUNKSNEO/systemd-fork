@@ -128,12 +128,27 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- StorageProvider interface + storagectl
+  - hook-up in systemd-nspawn
+  - hook-up in systemd-vmspawn
+  - hook-up in service manager (BindVolume=)
+
 - a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
   part of the initial transaction for some btrfs raid fs, waits for some time,
   then puts message on screen (plymouth, console) that some devices apparently
   are not showing up, then counts down, eventually set a flag somewhere, and
   retriggers the fs is was invoked for, which causes the udev rules to rerun
   that assemble the btrfs raid, but this time force degraded assembly.
+
+- add a report backend that simply exposes a bunch of static files that are
+  symlinked to some dir {/run,/etc/,/var/lib/}systemd/report-files/ or so as
+  facts. Use that for exposing SSH keys and suchlike.
+
+- report generators for:
+  - ip addresses
+  - imds address
+  - tpm event log
+  - open IP ports
 
 - a way for container managers to turn off getty starting via $container_headless= or so...
 
@@ -166,6 +181,20 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   what it was signed.
 
 - add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
+
+- sysupdate: in .transfer files have a 2nd url that is used if we
+  auto-rollbacked the OS before.
+
+- sysupdate: optionally enrich URL with countme=1 once a week
+
+- sysupdate: have an explicit concept of update policies: i.e. a choice of at least
+  - download list + report updates in motd – but do not auto update
+  - download list + download new version – but do not apply it
+  - download list + download new version + apply it – but do not reboot
+  - download list + donwload new version + apply it + reboot
+  Other things the policy shoudl contain is when to place the reboot.
+  This would all decouple the updating of the package list from the application
+  of it. Which is great for "countme" style stuff.
 
 - Add a "systemctl list-units --by-slice" mode or so, which rearranges the
   output of "systemctl list-units" slightly by showing the tree structure of
@@ -2521,8 +2550,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - systemd-tpm2-support: add a some logic that detects if system is in DA
   lockout mode, and queries the user for TPM recovery PIN then.
 
-- systemd: add storage API via varlink, where everyone can drop a socket in a
-  dir, similar, do the same thing for networking
+- add a networking provider API, inspired by the StorageProvider. Make networkd
+  a provider that exposes interfaces for adding tap, tun, veth via the api,
+  base this on .netdev logic somehow.
 
 - $SYSTEMD_EXECPID that the service manager sets should
   be augmented with $SYSTEMD_EXECPIDFD (and similar for
